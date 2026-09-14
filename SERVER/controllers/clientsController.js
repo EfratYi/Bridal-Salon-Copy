@@ -1,6 +1,8 @@
 const clientsModel = require('../model/clientsModel');
 const usersModel = require('../model/usersModel');
 const ordersModel=require('../model/ordersModel');
+const bcrypt = require('bcrypt');
+
 async function createClient(name, email, phone1, password) {
     try {
         const users = await usersModel.getUserByEmail(email);

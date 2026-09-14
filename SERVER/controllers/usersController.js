@@ -1,10 +1,8 @@
-
 const usersModel = require('../model/usersModel');
 const clientModel = require('../model/clientsModel');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
-
 
 
 async function loginController(email, password) {
@@ -15,7 +13,7 @@ async function loginController(email, password) {
         }
 
         if (userToLogIn && password == null) {
-            return new Error('enter password');
+            throw new Error('enter password');
         }
         const passwordMatch = await bcrypt.compare(password, userToLogIn.password);
         console.log('Password match:', passwordMatch);
@@ -24,7 +22,10 @@ async function loginController(email, password) {
             throw new Error('Incorrect password');
         }
         const returnUser={id:userToLogIn.id, email:userToLogIn.email}
-        return returnUser;
+        // create token
+        const secret = process.env.JWT_SECRET || 'dev_secret';
+        const token = jwt.sign({ id: userToLogIn.id, email: userToLogIn.email }, secret, { expiresIn: '7d' });
+        return { user: returnUser, token };
     }
     catch (err) {
         throw err;
@@ -119,8 +120,3 @@ async function createUser(userId, name, email, phone1, phone2, password) {
 }
 
 module.exports = { loginController, getUserByEmail, createUser, getUsers, getUsers, getUserById, postClient, updateUser, deleteUser }
-
-
-
-
-
