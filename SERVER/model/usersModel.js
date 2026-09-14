@@ -1,16 +1,30 @@
 const pool = require('../DB.js');
-
 const bcrypt = require('bcrypt');
-const hashPassword = (password) => {
+
+const hashPasswordSync = (password) => {
   const saltRounds = 10;
   return bcrypt.hashSync(password, saltRounds);
 };
-;
+
+async function updateUserPassword(userId, plainPassword) {
+  try {
+    const hashed = await bcrypt.hash(plainPassword, 10);
+    // try update first
+    const [res] = await pool.query('UPDATE passwords SET password = ? WHERE userId = ?', [hashed, userId]);
+    if (res.affectedRows === 0) {
+      // no existing password row, insert one
+      await pool.query('INSERT INTO passwords (userId, password) VALUES (?, ?)', [userId, hashed]);
+    }
+    return { success: true };
+  } catch (err) {
+    throw err;
+  }
+}
 
 async function createUser(userId, name, email, phone1, phone2, hashedPassword) {
   try {
     const sqlUser = `INSERT INTO users (userId, name, email, phone1, phone2, roleId) VALUES ( ?,?,?,?,?, ?)`;
-    const [userResult] = await pool.query(sqlUser, [userId, name, email, phone1, phone2,2]);
+    const [userResult] = await pool.query(sqlUser, [userId, name, email, phone1, phone2, 2]);
     const insertId = userResult.insertId;
     const sqlPassword = `INSERT INTO passwords (userId, password) VALUES ( ?,?)`;
     const result = await pool.query(sqlPassword, [insertId, hashedPassword]);
@@ -24,8 +38,8 @@ async function createUser(userId, name, email, phone1, phone2, hashedPassword) {
 async function getUsers() {
   try {
     const sql = 'SELECT u.id, userId, name, email, phone1, phone2, type role FROM users u, roles r WHERE u.roleId=r.id';
-    const result = await pool.query(sql);
-    return result[0];
+    const [result] = await pool.query(sql);
+    return result;
   }
   catch (err) {
     throw err;
@@ -51,7 +65,7 @@ async function getUserByEmail(email) {
   catch (err) {
     throw err;
   }
-} 
+}
 
 async function getUserById(id) {
   try {
@@ -64,4 +78,4 @@ async function getUserById(id) {
   }
 }
 
-module.exports = { createUser, getUsers, getUserById, getUserByEmail, loginModel }
+module.exports = { createUser, getUsers, getUserById, getUserByEmail, loginModel, updateUserPassword };
