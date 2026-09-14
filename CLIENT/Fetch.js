@@ -1,148 +1,100 @@
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const DEFAULT_HEADERS = {
+  'Content-Type': 'application/json',
+};
 
-export function getData(type) {
-   return fetch(`http://localhost:3000/${type}`, {
-      headers: {
-         'Content-Type': 'application/json',
-      }, credentials: "include",
+function getAuthHeader() {
+  try {
+    const token = localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch (_) {
+    return {};
+  }
+}
 
-   })
-      .then((res) => {
-         if (!res.ok) {
-            throw new Error('Network response was not ok');
-         }
-         return res.json();
-      })
-      .then((data) => {
-         return data;
-      })
-      .catch((error) =>{ console.error(`Error fetching ${type}:`, error)
-      return null});
+async function request(path, options = {}) {
+  const controller = new AbortController();
+  const timeout = options.timeout || 15000; // 15s default
+  const timer = setTimeout(() => controller.abort(), timeout);
+
+  const headers = {
+    ...DEFAULT_HEADERS,
+    ...getAuthHeader(),
+    ...(options.headers || {}),
+  };
+
+  const opts = {
+    credentials: options.credentials || 'include',
+    signal: controller.signal,
+    ...options,
+    headers,
+  };
+
+  // If body is an object, stringify it
+  if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData)) {
+    opts.body = JSON.stringify(opts.body);
+  }
+
+  try {
+    const res = await fetch(`${BASE_URL}/${path}`, opts);
+    clearTimeout(timer);
+
+    // No content
+    if (res.status === 204) return null;
+
+    let data;
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      data = await res.text();
+    }
+
+    if (!res.ok) {
+      // Prefer structured message if provided by server
+      const errMsg = (data && (data.message || data.error)) || res.statusText || 'Request failed';
+      throw new Error(errMsg);
+    }
+
+    return data;
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      console.error(`Request timed out: ${path}`);
+    } else {
+      console.error(`Error fetching ${path}:`, err.message || err);
+    }
+    return null;
+  }
+}
+
+export async function getData(type) {
+  return await request(type, { method: 'GET' });
 }
 
 export async function getDataByEmail(type, email) {
-   try {
-      const response = await fetch(`http://localhost:3000/${type}`, {
-         method: 'POST',
-         headers: {
-            'Content-Type': 'application/json',
-         },
-         credentials: 'include',
-         body: JSON.stringify({ email: email }),
-      });
-
-      if (!response.ok) {
-         const errorData = await response.json();
-         throw new Error(errorData.error || 'Network response was not ok');
-      }
-
-      const data = await response.json();
-      return data;
-   } catch (error) {
-      alert(error.message || 'An error occurred');
-      console.error(`Error fetching ${type}:`, error);
-      return null
-   }
+  return await request(type, { method: 'POST', body: { email } });
 }
 
-export function getDataById(type, id) {
-   return fetch(`http://localhost:3000/${type}/${id}`, {
-      headers: {
-         'Content-Type': 'application/json',
-      }, credentials: "include",
-   })
-      .then((res) => res.json())
-      .then((data) => {
-         return data;
-      })
-      .catch((error) => {console.error(`Error fetching ${type}:`, error)
-      return null});
+export async function getDataById(type, id) {
+  return await request(`${type}/${id}`, { method: 'GET' });
 }
 
-export function postNewObject(type, object) {
-   return fetch(`http://localhost:3000/${type}`, {
-      method: 'POST',
-      headers: {
-         'Content-Type': 'application/json',
-      }, credentials: "include",
-      body: JSON.stringify(object),
-   })
-      .then(res => res.json())
-      .then(data => {
-            return data;
-      })
-      .catch(err => {console.error(`Error posting ${type}:`, err)
-      return null});
+export async function postNewObject(type, object) {
+  return await request(type, { method: 'POST', body: object });
 }
 
-export function updateObject(type, id, object) {
-
-   return fetch(`http://localhost:3000/${type}/${id}`, {
-      method: 'PUT',
-      headers: {
-         'Content-Type': 'application/json',
-      }, credentials: "include",
-      body: JSON.stringify({
-         ...object,
-         id: id,
-      }),
-   })
-      .then(res => res.json())
-      .then(data => {
-         return data;
-      })
-      .catch(err => {console.error(`Error updating ${type}:`, err)
-      return null});
+export async function updateObject(type, id, object) {
+  return await request(`${type}/${id}`, { method: 'PUT', body: object });
 }
 
-
-export function deleteObject(type, id) {
-   console.log(`${type}, ${id}`)
-   return fetch(`http://localhost:3000/${type}/${id}`, {
-      method: 'DELETE',
-      headers: {
-         'Content-Type': 'application/json',
-      }, credentials: "include",
-   })
-      .then(res => res.json())
-      .then(data => {
-         return data;
-      })
-      .catch(err => {
-         console.error(`Error delete ${type}:`, err)
-         return null
-      });
+export async function deleteObject(type, id) {
+  return await request(`${type}/${id}`, { method: 'DELETE' });
 }
 
-
-export function getOrdersOfClient(userId) {
-   return fetch(`http://localhost:3000/myDetails/${userId}/orders`, {
-      headers: {
-         'Content-Type': 'application/json',
-      }, credentials: "include",
-   })
-      .then((res) => res.json())
-      .then((data) => {
-         return data;
-      })
-      .catch((error) => {
-         console.error(`Error fetching orders of client:`, error)
-         return null
-      });
+export async function getOrdersOfClient(userId) {
+  return await request(`myDetails/${userId}/orders`, { method: 'GET' });
 }
 
-export function getTurnsOfClient(userId) {
-   return fetch(`http://localhost:3000/myDetails/${userId}/turns`, {
-      headers: {
-         'Content-Type': 'application/json',
-      }, credentials: "include",
-   })
-      .then((res) => res.json())
-      .then((data) => {
-         return data;
-      })
-
-      .catch((error) => {
-         console.error(`Error fetching orders of client:`, error)
-         return null
-      });
+export async function getTurnsOfClient(userId) {
+  return await request(`myDetails/${userId}/turns`, { method: 'GET' });
 }
